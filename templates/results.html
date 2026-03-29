@@ -244,9 +244,13 @@
 
   <!-- ── 6. Full Review Table Button ── -->
   <div style="margin-top: 2.5rem; text-align: center;">
-    <a href="/reviews/{{ analysis.id }}" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1.1rem; width: 100%; max-width: 600px;">
-      View Detailed Reviews Breakdown →
-    </a>
+    {% if analysis and analysis.id %}
+      <a href="/reviews/{{ analysis.id }}" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1.1rem; width: 100%; max-width: 600px;">
+        View Detailed Reviews Breakdown →
+      </a>
+    {% else %}
+      <p style="color:var(--text-3);font-size:.875rem">Database saving disabled; detailed review breakdown unavailable.</p>
+    {% endif %}
   </div>
 
   <!-- ── 7. Export & Actions ── -->

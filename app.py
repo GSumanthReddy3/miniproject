@@ -474,34 +474,40 @@ def predict():
             return redirect(url_for('index'))
 
         # ── Persist ───────────────────────────────────────────────────────
-        analysis = Analysis(
-            user_id       = session.get('user_id'),
-            input_type    = input_type,
-            total         = result['total'],
-            fake_count    = result['fake_count'],
-            genuine_count = result['genuine_count'],
-            pros_json     = json.dumps(result['advantages']),
-            cons_json     = json.dumps(result['disadvantages']),
-            result_json   = json.dumps(result),
-        )
-        db.session.add(analysis)
-        db.session.flush()
+        try:
+            analysis = Analysis(
+                user_id       = session.get('user_id'),
+                input_type    = input_type,
+                total         = result['total'],
+                fake_count    = result['fake_count'],
+                genuine_count = result['genuine_count'],
+                pros_json     = json.dumps(result['advantages']),
+                cons_json     = json.dumps(result['disadvantages']),
+                result_json   = json.dumps(result),
+            )
+            db.session.add(analysis)
+            db.session.flush()
 
-        for rev in result['reviews'][:150]:
-            db.session.add(ReviewRecord(
-                analysis_id = analysis.id,
-                review_text = rev['text'][:500],
-                prediction  = rev['prediction'],
-                confidence  = rev['confidence'],
-            ))
+            for rev in result['reviews'][:150]:
+                db.session.add(ReviewRecord(
+                    analysis_id = analysis.id,
+                    review_text = rev['text'][:500],
+                    prediction  = rev['prediction'],
+                    confidence  = rev['confidence'],
+                ))
+            db.session.commit()
+            return redirect(url_for('results_page', analysis_id=analysis.id))
 
-        db.session.commit()
-        return redirect(url_for('results_page', analysis_id=analysis.id))
+        except Exception as db_err:
+            db.session.rollback()
+            logger.error(f"Database persist failed: {str(db_err)}")
+            flash("Database save failed. Results generated in memory but won't be saved to history.", "error")
+            # Fail-safe condition: show analysis instantly without a saved DB id
+            return render_template('results.html', result=result, analysis=None)
 
     except Exception as e:
-        db.session.rollback()
         logger.error(traceback.format_exc())
-        flash(f'Analysis failed: {str(e)}', 'error')
+        flash(f'Analysis failed completely: {str(e)}', 'error')
         return redirect(url_for('index'))
 
 
@@ -598,9 +604,9 @@ def reviews_page(analysis_id):
     return render_template('reviews.html', analysis=analysis)
 
 
-# ─── Startup ─────────────────────────────────────────────────────────────────
-if __name__ == '__main__':
-    with app.app_context():
+# ─── Startup (Production & Local) ─────────────────────────────────────────────
+with app.app_context():
+    try:
         db.create_all()
         # Add result_json column if upgrading from older schema
         try:
@@ -610,12 +616,16 @@ if __name__ == '__main__':
             db.session.commit()
             logger.info("✓ Migrated: added result_json column")
         except Exception:
-            pass   # column already exists
+            db.session.rollback()  # column already exists
         logger.info("✓ Database ready")
-        try:
-            load_model()
-        except FileNotFoundError:
-            logger.warning("⚠  Model not found — run: python train_model.py")
+    except Exception as e:
+        logger.error(f"⚠ Database initialization error: {e}")
 
+    try:
+        load_model()
+    except FileNotFoundError:
+        logger.warning("⚠  Model not found — run: python train_model.py")
+
+if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
