@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Insights Report — Explainable Product Insight System</title>
+  <meta name="description" content="Product analysis results: advantages, disadvantages, trend analysis." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Embed all result data as JS constants for client-side interactivity -->
+  <script id="result-data" type="application/json">
+    {{ result | tojson | safe if result else "{}" }}
+  </script>
+  <script>
+    const RESULT      = JSON.parse(document.getElementById('result-data').textContent);
+    const ANALYSIS_ID = parseInt("{{ analysis.id | default(0) }}", 10);
+    const CREATED_AT  = "{{ analysis.created_at.strftime('%d %b %Y, %H:%M') if analysis and analysis.created_at else '' }}";
+    const INPUT_TYPE  = "{{ analysis.input_type | upper if analysis and analysis.input_type else '' }}";
+  </script>
+</head>
+<body class="page-results">
+
+<!-- ═══ NAVBAR ═══ -->
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <span class="brand-icon">🛡️</span>
+      <span class="brand-name">Product Insight <span class="brand-ai">AI</span></span>
+    </div>
+    <div class="nav-actions">
+      <a href="/" class="btn btn-outline btn-sm">← New Analysis</a>
+      <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ RESULTS HERO ═══ -->
+<section class="results-hero">
+  <div class="hero-bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+  <div class="results-hero-inner">
+    <div class="breadcrumb">
+      <a href="/" class="bc-link">🏠 Home</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-curr">Analysis #{{ analysis.id }}</span>
+    </div>
+    <div class="results-hero-title-row">
+      <div>
+        <h1 class="results-hero-title">Analysis Report</h1>
+        <p class="results-hero-meta">
+          <span class="meta-chip">{{ analysis.input_type | upper }} Input</span>
+          <span class="meta-chip">{{ analysis.created_at.strftime('%d %b %Y, %H:%M') }}</span>
+          {% if analysis.user %}
+          <span class="meta-chip">👤 {{ analysis.user.username }}</span>
+          {% endif %}
+        </p>
+      </div>
+      <!-- Authenticity ring badge -->
+      <div class="auth-ring-wrap">
+        {% set auth = result.genuine_percentage | int %}
+        <div class="auth-ring {% if auth >= 70 %}ring-green{% elif auth >= 40 %}ring-yellow{% else %}ring-red{% endif %}">
+          <div class="auth-ring-inner">
+            <span class="auth-ring-pct">{{ auth }}%</span>
+            <span class="auth-ring-lbl">Authentic</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MAIN DASHBOARD ═══ -->
+<main class="main-container results-main">
+
+  <!-- ── 1. Summary Cards ── -->
+  <div class="summary-grid">
+    <div class="summary-card card-total">
+      <div class="sc-icon">📊</div>
+      <div class="sc-value">{{ result.total }}</div>
+      <div class="sc-label">Total Reviews</div>
+    </div>
+    <div class="summary-card card-genuine">
+      <div class="sc-icon">✅</div>
+      <div class="sc-value">{{ result.genuine_count }}</div>
+      <div class="sc-label">Genuine</div>
+      <div class="sc-pct">{{ result.genuine_percentage }}%</div>
+    </div>
+    <div class="summary-card card-fake">
+      <div class="sc-icon">🚫</div>
+      <div class="sc-value">{{ result.fake_count }}</div>
+      <div class="sc-label">Fake Detected</div>
+      <div class="sc-pct">{{ result.fake_percentage }}%</div>
+    </div>
+    <div class="summary-card card-sentiment">
+      {% if result.overall_sentiment == 'positive' %}
+        <div class="sc-icon">😊</div>
+        <div class="sc-value" style="color:var(--green-l)">Positive</div>
+      {% elif result.overall_sentiment == 'negative' %}
+        <div class="sc-icon">😟</div>
+        <div class="sc-value" style="color:var(--red-l)">Negative</div>
+      {% else %}
+        <div class="sc-icon">😐</div>
+        <div class="sc-value" style="color:var(--text-2)">Neutral</div>
+      {% endif %}
+      <div class="sc-label">Sentiment (Genuine)</div>
+    </div>
+  </div>
+
+  <!-- ── 2. Authenticity Bar ── -->
+  <div class="glass-card ratio-card">
+    <div class="ratio-label">
+      <span>Authenticity Score</span>
+      <span class="ratio-score {% if result.genuine_percentage >= 70 %}score-green{% elif result.genuine_percentage >= 40 %}score-yellow{% else %}score-red{% endif %}">
+        {{ result.genuine_percentage }}% Authentic
+      </span>
+    </div>
+    <div class="ratio-bar-bg">
+      <div class="ratio-bar-fill genuine-fill" data-style-width="{{ result.genuine_percentage }}%"></div>
+      <div class="ratio-bar-fill fake-fill"    data-style-width="{{ result.fake_percentage }}%"></div>
+    </div>
+    <div class="ratio-legend">
+      <span class="legend-dot genuine-dot"></span><span>Genuine ({{ result.genuine_count }})</span>
+      <span class="legend-dot fake-dot"></span><span>Fake ({{ result.fake_count }})</span>
+    </div>
+  </div>
+
+  <!-- ── 3. Advantages & Disadvantages ── -->
+  <div class="pros-cons-grid">
+    <div class="glass-card pros-card">
+      <div class="pc-header">
+        <span class="pc-icon">💚</span>
+        <h3 class="pc-title">Product Advantages</h3>
+        <span class="pc-badge">{{ result.advantages | length }}</span>
+      </div>
+      {% if result.advantages %}
+        <ul class="pc-list">
+          {% for adv in result.advantages %}
+            <li data-style-delay="{{ loop.index0 * 0.06 }}s">{{ adv }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="pc-empty">No advantages extracted from reviews</p>
+      {% endif %}
+    </div>
+
+    <div class="glass-card cons-card">
+      <div class="pc-header">
+        <span class="pc-icon">🔴</span>
+        <h3 class="pc-title">Product Disadvantages</h3>
+        <span class="pc-badge cons-badge-clr">{{ result.disadvantages | length }}</span>
+      </div>
+      {% if result.disadvantages %}
+        <ul class="pc-list">
+          {% for dis in result.disadvantages %}
+            <li data-style-delay="{{ loop.index0 * 0.06 }}s">{{ dis }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="pc-empty">No disadvantages extracted from reviews</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── 3.5 Final Product Verdict Card ── -->
+  <div class="glass-card verdict-card" style="margin-top: 2rem;">
+    <div class="verdict-header">
+      <h2 class="verdict-title">Final Product Verdict</h2>
+      {% set rec = result.recommendation %}
+      {% if rec == 'Recommended to Buy' %}
+        <span class="recommendation-badge rec-buy">✓ {{ rec }}</span>
+      {% elif rec == 'Consider Alternatives' %}
+        <span class="recommendation-badge rec-skip">⚠ {{ rec }}</span>
+      {% else %}
+        <span class="recommendation-badge rec-neutral">ℹ {{ rec }}</span>
+      {% endif %}
+    </div>
+    
+    <div class="verdict-body">
+      <div class="v-box v-pro">
+        <div class="v-icon">⭐</div>
+        <div class="v-content">
+          <h4>Major Advantage</h4>
+          <p>{{ result.major_advantage }}</p>
+        </div>
+      </div>
+      
+      <div class="v-box v-con">
+        <div class="v-icon">⚠</div>
+        <div class="v-content">
+          <h4>Major Disadvantage</h4>
+          <p>{{ result.major_disadvantage }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 4. Trend Chart ── -->
+  <div class="glass-card chart-card">
+    <div class="card-header">
+      <h3 class="card-title">📈 Review Trend Analysis</h3>
+      <p class="card-subtitle">Monthly review volume over time (requires <code>date</code> column in CSV)</p>
+    </div>
+    {% if result.trend and result.trend|length > 0 %}
+      <div class="chart-wrap">
+        <canvas id="trend-chart" height="90"></canvas>
+      </div>
+      {% if result.trend_summary %}
+        <div class="trend-summary">
+          <p>{{ result.trend_summary }}</p>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="no-trend-msg">
+        <span class="no-trend-icon">📅</span>
+        <p>No trend data available</p>
+        <p class="no-trend-sub">Upload a CSV with a <code>date</code> column (YYYY-MM-DD) to see trend analysis over time.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ── 5. Confidence & Genuine Samples ── -->
+  <div class="glass-card samples-card">
+    <div class="card-header">
+      <h3 class="card-title">✅ Analysis Confidence & Summary</h3>
+      <p class="card-subtitle">{{ result.summary }}</p>
+    </div>
+    {% if result.genuine_samples %}
+      <div class="samples-grid">
+        {% for sample in result.genuine_samples %}
+          <div class="sample-card">
+            <p class="sample-text">{{ sample }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p style="color:var(--text-3);font-size:.875rem">No valid sample reviews were detected.</p>
+    {% endif %}
+  </div>
+
+  <!-- ── 6. Full Review Table Button ── -->
+  <div style="margin-top: 2.5rem; text-align: center;">
+    <a href="/reviews/{{ analysis.id }}" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1.1rem; width: 100%; max-width: 600px;">
+      View Detailed Reviews Breakdown →
+    </a>
+  </div>
+
+  <!-- ── 7. Export & Actions ── -->
+  <div class="actions-footer">
+    <div class="actions-left">
+      <button class="btn btn-outline-sm" onclick="exportJSON()">⬇ Export JSON</button>
+      <button class="btn btn-outline-sm" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn btn-outline-sm" onclick="window.print()">🖨 Print Report</button>
+    </div>
+    <div class="actions-right">
+      <a href="/" class="btn btn-primary-sm">⚡ New Analysis</a>
+    </div>
+  </div>
+
+</main>
+
+<!-- Footer -->
+<footer class="site-footer">
+  <p>Product Insight AI — Analysis #{{ analysis.id }} &nbsp;|&nbsp; {{ analysis.created_at.strftime('%d %B %Y') }}</p>
+</footer>
+
+<script>
+  // Apply dynamic styles (workaround for IDE CSS parser syntax errors with Jinja)
+  document.querySelectorAll('[data-style-width]').forEach(el => el.style.width = el.getAttribute('data-style-width'));
+  document.querySelectorAll('[data-style-delay]').forEach(el => el.style.animationDelay = el.getAttribute('data-style-delay'));
+</script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

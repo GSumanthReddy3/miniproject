@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Explainable Product Insight System</title>
+  <meta name="description" content="AI-powered product insight extraction. Analyze reviews and get instant advantages, disadvantages, and trends." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body class="page-index">
+
+<!-- ═══ NAVBAR ═══ -->
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <span class="brand-icon">🛡️</span>
+      <span class="brand-name">Product Insight <span class="brand-ai">AI</span></span>
+    </div>
+    <div class="nav-actions">
+      <div id="auth-status" class="auth-status"></div>
+      <button class="btn btn-ghost btn-sm" id="btn-history" style="display:none" onclick="loadHistory()">📋 History</button>
+      <button class="btn btn-outline btn-sm" id="btn-auth" onclick="openAuthModal()">Sign In</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="hero-bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="badge-dot"></span>
+      <span>NLP + Machine Learning • Real-time Intelligence</span>
+    </div>
+    <h1 class="hero-title">
+      Extract Product Insights.<br />
+      <span class="gradient-text">Understand What Users Love.</span>
+    </h1>
+    <p class="hero-subtitle">
+      Upload product reviews via text, CSV, or URL — our AI instantly extracts meaningful advantages &amp; disadvantages, reveals trend patterns, and filters out fake reviews so you can make smarter decisions.
+    </p>
+    <div class="hero-chips">
+      <div class="chip"><span>⚡</span> Instant Analysis</div>
+      <div class="chip"><span>🧠</span> NLP Extraction</div>
+      <div class="chip"><span>📊</span> Trend Insights</div>
+      <div class="chip"><span>🔒</span> Secure &amp; Private</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FLASH MESSAGES ═══ -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-container">
+      {% for category, msg in messages %}
+        <div class="flash flash-{{ category }}">
+          <span class="flash-icon">{{ '⚠️' if category == 'error' else '✅' }}</span>
+          <span>{{ msg }}</span>
+          <button class="flash-close" onclick="this.parentElement.remove()">✕</button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<!-- ═══ MAIN INPUT CARD ═══ -->
+<main class="main-container">
+  <section class="glass-card input-panel">
+    <div class="card-header">
+      <h2 class="card-title">🔍 Analyze Reviews</h2>
+      <p class="card-subtitle">Choose your input method and click Analyze — results open on a new page</p>
+    </div>
+
+    <!-- Input Tabs -->
+    <div class="tab-bar" role="tablist">
+      <button class="tab active" id="tab-text" onclick="switchTab('text')"><span>📝</span> Paste Text</button>
+      <button class="tab" id="tab-csv"  onclick="switchTab('csv')"><span>📁</span> Upload CSV</button>
+      <button class="tab" id="tab-url"  onclick="switchTab('url')"><span>🔗</span> URL Scrape</button>
+    </div>
+
+    <!-- FORM — regular POST, no AJAX -->
+    <form id="analyze-form" method="POST" action="/predict" enctype="multipart/form-data">
+      <input type="hidden" name="input_type" id="input_type" value="text" />
+
+      <!-- Text -->
+      <div class="tab-content active" id="content-text">
+        <div class="field-group">
+          <label class="field-label" for="review_text">
+            Paste one or more reviews <span class="lbl-hint">(separate multiple with a new line)</span>
+          </label>
+          <textarea id="review_text" name="review_text" class="field-textarea" rows="8"
+            placeholder="e.g.  This product is absolutely amazing! Battery lasts all day and the build quality is superb. I've been using it for 3 weeks without any issues...
+
+Paste another review on a new line..."></textarea>
+          <div class="field-hint">Min 10 characters per review</div>
+        </div>
+      </div>
+
+      <!-- CSV -->
+      <div class="tab-content" id="content-csv">
+        <div class="field-group">
+          <label class="field-label">Upload CSV File</label>
+          <div class="file-drop-zone" id="file-drop-zone">
+            <div class="drop-icon">📂</div>
+            <div class="drop-text">Drag &amp; drop CSV here</div>
+            <div class="drop-sub">or click to browse</div>
+            <div class="drop-spec">Required column: <code>review</code> &nbsp;|&nbsp; Optional: <code>date</code> (enables trend chart)</div>
+            <input type="file" name="csv_file" id="csv_file" accept=".csv" class="file-input" />
+          </div>
+          <div class="file-name-display" id="file-name-display" style="display:none"></div>
+        </div>
+        <div class="csv-hint-box">
+          <strong>Expected CSV format:</strong>
+          <table class="hint-table">
+            <thead><tr><th>review</th><th>date (optional)</th></tr></thead>
+            <tbody>
+              <tr><td>Great product, works perfectly after 2 months</td><td>2024-03-15</td></tr>
+              <tr><td>AMAZING PERFECT BUY NOW FIVE STARS!!</td><td>2024-03-20</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- URL -->
+      <div class="tab-content" id="content-url">
+        <div class="field-group">
+          <label class="field-label" for="review_url">Product Page URL</label>
+          <div class="url-input-wrap">
+            <span class="url-prefix">🔗</span>
+            <input type="url" id="review_url" name="review_url" class="field-input"
+              placeholder="https://example.com/product-reviews" />
+          </div>
+          <div class="field-hint">⚠️ Works on static HTML pages. JavaScript-rendered sites (Amazon, Flipkart) may not yield results.</div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-analyze" id="btn-analyze">
+          <span id="btn-spinner" class="btn-spinner" style="display:none">⏳</span>
+          <span class="btn-icon">⚡</span>
+          <span class="btn-text">Analyze Reviews</span>
+          <span class="btn-sub">→ Opens results page</span>
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <!-- How it works -->
+  <section class="howit-grid">
+    <div class="howit-card">
+      <div class="hi-num">01</div>
+      <div class="hi-icon">📥</div>
+      <h3 class="hi-title">Input Reviews</h3>
+      <p class="hi-desc">Paste text, upload a CSV, or provide a product page URL to scrape reviews.</p>
+    </div>
+    <div class="howit-card">
+      <div class="hi-num">02</div>
+      <div class="hi-icon">🤖</div>
+      <h3 class="hi-title">AI Insight Processing</h3>
+      <p class="hi-desc">Our NLP model groups product features, evaluates sentiment, and filters out noise and fakes.</p>
+    </div>
+    <div class="howit-card">
+      <div class="hi-num">03</div>
+      <div class="hi-icon">💡</div>
+      <h3 class="hi-title">Advantages & Disadvantages</h3>
+      <p class="hi-desc">We convert raw text into readable, meaningful sentences that summarize what users think.</p>
+    </div>
+    <div class="howit-card">
+      <div class="hi-num">04</div>
+      <div class="hi-icon">📊</div>
+      <h3 class="hi-title">Full Report</h3>
+      <p class="hi-desc">A dedicated results page shows authenticity score, trends, and review breakdown.</p>
+    </div>
+  </section>
+
+  <!-- History panel (auth) -->
+  <section class="glass-card history-panel" id="history-panel" style="display:none">
+    <div class="card-header-row">
+      <h3 class="card-title">📋 Analysis History</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeHistory()">✕ Close</button>
+    </div>
+    <div id="history-list"></div>
+  </section>
+</main>
+
+<!-- ═══ AUTH MODAL ═══ -->
+<div class="modal-overlay" id="auth-modal" style="display:none" onclick="closeAuthModal(event)">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeAuthModal()">✕</button>
+    <div class="modal-tabs">
+      <button class="mtab active" id="mtab-login" onclick="switchAuthTab('login')">Sign In</button>
+      <button class="mtab" id="mtab-register" onclick="switchAuthTab('register')">Register</button>
+    </div>
+    <form id="login-form" class="auth-form" onsubmit="handleLogin(event)">
+      <h3 class="auth-title">Welcome Back 👋</h3>
+      <div class="field-group">
+        <label class="field-label">Username</label>
+        <input type="text" class="field-input" id="login-username" placeholder="your_username" required />
+      </div>
+      <div class="field-group">
+        <label class="field-label">Password</label>
+        <input type="password" class="field-input" id="login-password" placeholder="••••••••" required />
+      </div>
+      <div class="auth-error" id="login-error" style="display:none"></div>
+      <button type="submit" class="btn btn-primary w-full">Sign In</button>
+    </form>
+    <form id="register-form" class="auth-form" style="display:none" onsubmit="handleRegister(event)">
+      <h3 class="auth-title">Create Account ✨</h3>
+      <div class="field-group">
+        <label class="field-label">Username</label>
+        <input type="text" class="field-input" id="reg-username" placeholder="your_username" required />
+      </div>
+      <div class="field-group">
+        <label class="field-label">Email</label>
+        <input type="email" class="field-input" id="reg-email" placeholder="you@example.com" required />
+      </div>
+      <div class="field-group">
+        <label class="field-label">Password</label>
+        <input type="password" class="field-input" id="reg-password" placeholder="min 6 characters" required />
+      </div>
+      <div class="auth-error" id="reg-error" style="display:none"></div>
+      <button type="submit" class="btn btn-primary w-full">Create Account</button>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast" style="display:none"></div>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

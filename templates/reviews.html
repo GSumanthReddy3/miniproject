@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Detailed Reviews — Explainable Product Insight System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body class="page-results page-reviews">
+
+<!-- ═══ NAVBAR ═══ -->
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <span class="brand-icon">🛡️</span>
+      <span class="brand-name">Product Insight <span class="brand-ai">AI</span></span>
+    </div>
+    <div class="nav-actions">
+      <a href="/results/{{ analysis.id }}" class="btn btn-outline btn-sm">← Back to Insights</a>
+      <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="results-hero">
+  <div class="hero-bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+  <div class="results-hero-inner">
+    <div class="breadcrumb">
+      <a href="/" class="bc-link">🏠 Home</a>
+      <span class="bc-sep">›</span>
+      <a href="/results/{{ analysis.id }}" class="bc-link">Analysis #{{ analysis.id }}</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-curr">Detailed Reviews</span>
+    </div>
+    <div class="results-hero-title-row">
+      <div>
+        <h1 class="results-hero-title">Detailed Reviews Breakdown</h1>
+        <p class="results-hero-meta">
+          <span class="meta-chip">{{ analysis.total }} Total Reviews</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MAIN DASHBOARD ═══ -->
+<main class="main-container results-main" style="max-width: 1200px;">
+  
+  <div class="glass-card table-card" style="margin-top: 0;">
+    <div class="table-header-row" style="flex-wrap: wrap; gap: 1rem;">
+      <div style="flex: 1; min-width: 250px;">
+        <input type="text" id="review-search" placeholder="Search reviews..." class="form-input" style="width: 100%; max-width: 300px; padding: 0.6rem 1rem;">
+      </div>
+      <div class="table-filters" id="table-filters">
+        <button class="filter-btn active" onclick="filterReviews('all', this)">All ({{ analysis.total }})</button>
+        <button class="filter-btn" onclick="filterReviews('genuine', this)">✅ Genuine ({{ analysis.genuine_count }})</button>
+        <button class="filter-btn" onclick="filterReviews('fake', this)">🚫 Fake ({{ analysis.fake_count }})</button>
+      </div>
+    </div>
+    <div class="table-scroll" style="max-height: 70vh;">
+      <table class="review-table" id="review-table">
+        <thead>
+          <tr>
+            <th style="width: 5%;">#</th>
+            <th style="width: 65%;">Review Text</th>
+            <th style="width: 15%;">Verdict</th>
+            <th style="width: 15%;">Confidence</th>
+          </tr>
+        </thead>
+        <tbody id="review-tbody">
+          {% for rev in analysis.reviews %}
+          <tr class="review-row" data-prediction="{{ rev.prediction }}" data-text="{{ rev.review_text | lower }}">
+            <td class="td-num">{{ loop.index }}</td>
+            <td class="td-text" style="white-space: normal; line-height: 1.5;">{{ rev.review_text }}</td>
+            <td>
+              {% if rev.prediction == 'genuine' %}
+                <span class="badge badge-genuine">✅ Genuine</span>
+              {% else %}
+                <span class="badge badge-fake">🚫 Fake</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="conf-bar-wrap">
+                <div class="conf-bar-bg">
+                  <div class="conf-bar-fill {% if rev.prediction == 'genuine' %}conf-genuine{% else %}conf-fake{% endif %}"
+                       style="width: {{ rev.confidence }}%"></div>
+                </div>
+                <span class="conf-num">{{ rev.confidence }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div id="no-results" style="display: none; padding: 2rem; text-align: center; color: var(--text-2);">
+        No reviews match your search.
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  function filterReviews(filter, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    applyFilters();
+  }
+
+  document.getElementById('review-search').addEventListener('input', applyFilters);
+
+  function applyFilters() {
+    const searchText = document.getElementById('review-search').value.toLowerCase();
+    const activeBtn = document.querySelector('.filter-btn.active');
+    let filter = 'all';
+    
+    if (activeBtn && activeBtn.textContent.includes('Genuine')) filter = 'genuine';
+    if (activeBtn && activeBtn.textContent.includes('Fake')) filter = 'fake';
+
+    const rows = document.querySelectorAll('.review-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+      const pred = row.getAttribute('data-prediction');
+      const text = row.getAttribute('data-text');
+      
+      const matchFilter = (filter === 'all' || pred === filter);
+      const matchSearch = (text.includes(searchText));
+      
+      if (matchFilter && matchSearch) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    document.getElementById('no-results').style.display = visibleCount === 0 ? 'block' : 'none';
+  }
+</script>
+
+</body>
+</html>

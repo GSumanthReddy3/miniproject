@@ -1,0 +1,24 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# SQLite databases (local info shouldn't go to public cloud)
+*.sqlite
+*.sqlite3
+*.db
+
+# Environment variables
+.env
+.flaskenv
+
+# OS generated files
+.DS_Store
+Thumbs.db
